@@ -97,6 +97,7 @@ export default function Navbar() {
                   <Link
                     key={link.name}
                     href={link.href}
+                    prefetch={true}
                     className={`px-4 py-2 text-sm rounded-xl transition-all duration-200 ${
                       isActive
                         ? "bg-white text-emerald-800 font-extrabold shadow-sm border border-slate-200/70"
@@ -205,6 +206,7 @@ export default function Navbar() {
                   <Link
                     key={link.name}
                     href={link.href}
+                    prefetch={true}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center justify-between px-4 py-2.5 text-sm font-bold rounded-xl transition-all ${
                       isActive
