@@ -12,14 +12,10 @@ interface CatalogPageProps {
   }>;
 }
 
-export const revalidate = 0;
+export const revalidate = 30;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const { category, search, sort } = await searchParams;
-
-  const categories = await prisma.category.findMany({
-    orderBy: { sortOrder: "asc" },
-  });
 
   const where: Record<string, unknown> = {
     isActive: true,
@@ -43,11 +39,17 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   else if (sort === "price_desc") orderBy = { price: "desc" };
   else if (sort === "popular") orderBy = { views: "desc" };
 
-  const products = await prisma.product.findMany({
-    where,
-    orderBy,
-    include: { category: true },
-  });
+  // Fetch categories and products in parallel (1 single network roundtrip)
+  const [categories, products] = await Promise.all([
+    prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.product.findMany({
+      where,
+      orderBy,
+      include: { category: true },
+    }),
+  ]);
 
   const activeCategory = categories.find((c) => c.slug === category);
 

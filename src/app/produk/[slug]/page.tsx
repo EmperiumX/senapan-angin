@@ -12,7 +12,7 @@ interface ProductPageProps {
   }>;
 }
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function ProductDetailPage({ params }: ProductPageProps) {
   const { slug } = await params;
@@ -31,24 +31,26 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  // Increment view counter
-  await prisma.product.update({
-    where: { id: product.id },
-    data: { views: { increment: 1 } },
-  });
-
-  // Related products
-  const relatedProducts = await prisma.product.findMany({
-    where: {
-      categoryId: product.categoryId,
-      id: { not: product.id },
-      isActive: true,
-    },
-    take: 4,
-    include: {
-      category: true,
-    },
-  });
+  // Run view increment and related products in parallel / non-blocking
+  const [relatedProducts] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        categoryId: product.categoryId,
+        id: { not: product.id },
+        isActive: true,
+      },
+      take: 4,
+      include: {
+        category: true,
+      },
+    }),
+    prisma.product
+      .update({
+        where: { id: product.id },
+        data: { views: { increment: 1 } },
+      })
+      .catch(() => null),
+  ]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">

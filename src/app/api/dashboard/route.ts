@@ -12,48 +12,43 @@ export async function GET() {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    // Total orders & today orders
-    const totalOrders = await prisma.order.count();
-    const todayOrders = await prisma.order.count({
-      where: { createdAt: { gte: startOfToday } },
-    });
-
-    // Total completed revenue vs today revenue
-    const completedOrders = await prisma.order.findMany({
-      where: { status: "COMPLETED" },
-      select: { totalAmount: true, createdAt: true },
-    });
+    // Run all dashboard queries in parallel (1 roundtrip instead of 9 sequential roundtrips)
+    const [
+      totalOrders,
+      todayOrders,
+      completedOrders,
+      pendingOrdersCount,
+      totalProducts,
+      lowStockProductsCount,
+      recentOrders,
+      confirmedCount,
+      cancelledCount,
+    ] = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
+      prisma.order.findMany({
+        where: { status: "COMPLETED" },
+        select: { totalAmount: true, createdAt: true },
+      }),
+      prisma.order.count({ where: { status: "PENDING" } }),
+      prisma.product.count({ where: { isActive: true } }),
+      prisma.product.count({ where: { stock: { lte: 5 }, isActive: true } }),
+      prisma.order.findMany({
+        take: 7,
+        orderBy: { createdAt: "desc" },
+        include: { items: true },
+      }),
+      prisma.order.count({ where: { status: "CONFIRMED" } }),
+      prisma.order.count({ where: { status: "CANCELLED" } }),
+    ]);
 
     const totalRevenue = completedOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
     const todayRevenue = completedOrders
       .filter((ord) => new Date(ord.createdAt) >= startOfToday)
       .reduce((sum, ord) => sum + ord.totalAmount, 0);
 
-    // Pending orders
-    const pendingOrdersCount = await prisma.order.count({
-      where: { status: "PENDING" },
-    });
-
-    // Total products & low stock products
-    const totalProducts = await prisma.product.count({ where: { isActive: true } });
-    const lowStockProductsCount = await prisma.product.count({
-      where: { stock: { lte: 5 }, isActive: true },
-    });
-
-    // Recent orders
-    const recentOrders = await prisma.order.findMany({
-      take: 7,
-      orderBy: { createdAt: "desc" },
-      include: {
-        items: true,
-      },
-    });
-
-    // Status breakdown
-    const pendingCount = await prisma.order.count({ where: { status: "PENDING" } });
-    const confirmedCount = await prisma.order.count({ where: { status: "CONFIRMED" } });
+    const pendingCount = pendingOrdersCount;
     const completedCount = completedOrders.length;
-    const cancelledCount = await prisma.order.count({ where: { status: "CANCELLED" } });
 
     // Last 7 days breakdown for chart
     const daysName = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];

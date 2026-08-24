@@ -23,7 +23,7 @@ import {
 
 import { Category, Product } from "@/types";
 
-export const revalidate = 0; // Fresh dynamic data
+export const revalidate = 60; // Cache on Vercel Edge CDN for ultra-fast instant page load
 
 async function getHomeData(): Promise<{
   categories: (Category & { _count?: { products: number } })[];
